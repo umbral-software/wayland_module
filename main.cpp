@@ -530,16 +530,26 @@ Window::Window() {
     wl_surface_commit(_wl_surface.get());
 }
 
+static short poll_single(int fd, short events, int timeout) {
+    pollfd pfd { .fd = fd, .events = events };
+    poll(&pfd, 1, timeout);
+    return pfd.revents;
+}
+
 void Window::poll_events() {
     while (wl_display_prepare_read(_display.get())) {
         wl_display_dispatch_pending(_display.get());
     }
     while (wl_display_flush(_display.get()) && errno == EAGAIN) {
-        // TODO: Sleep in poll(POLLOUT) here?
+        poll_single(wl_display_get_fd(_display.get()), POLLOUT, -1);
     }
-    // TODO: poll(POLLIN) here?
-    wl_display_read_events(_display.get());
-    wl_display_dispatch_pending(_display.get());
+
+    if (POLLIN & poll_single(wl_display_get_fd(_display.get()), POLLIN, 0)) {
+        wl_display_read_events(_display.get());
+        wl_display_dispatch_pending(_display.get());
+    } else {
+        wl_display_cancel_read(_display.get());
+    }
 
     if (wl_display_get_error(_display.get())) {
         throw std::runtime_error("Wayland protocol error");

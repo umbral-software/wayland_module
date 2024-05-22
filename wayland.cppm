@@ -23,11 +23,13 @@ export {
     using ::wl_cursor_theme_get_cursor;
     using ::wl_cursor_theme_load;
     using ::wl_display;
+    using ::wl_display_cancel_read;
     using ::wl_display_connect;
     using ::wl_display_disconnect;
     using ::wl_display_dispatch_pending;
     using ::wl_display_flush;
     using ::wl_display_get_error;
+    using ::wl_display_get_fd;
     using ::wl_display_get_registry;
     using ::wl_display_prepare_read;
     using ::wl_display_read_events;
