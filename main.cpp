@@ -530,11 +530,6 @@ Window::Window() {
     wl_surface_commit(_wl_surface.get());
 }
 
-static void flush_display(wl_display *display) {
-    int ret = -1;
-
-}
-
 void Window::poll_events() {
     while (wl_display_prepare_read(_display.get())) {
         wl_display_dispatch_pending(_display.get());
