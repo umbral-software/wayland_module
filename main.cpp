@@ -6,7 +6,6 @@ import xkb;
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
 #include <poll.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
@@ -117,6 +116,90 @@ concept XkbDeletable = std::invocable<XkbDeleter, T*>;
 template<XkbDeletable T>
 using XkbPointer = std::unique_ptr<T, XkbDeleter>;
 
+class Buffer {
+public:
+    explicit Buffer(wl_shm *shm, std::pair<std::int32_t, std::int32_t> size) {
+        _fd = memfd_create("framebuffer", MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_NOEXEC_SEAL);
+
+        _filesize = BYTES_PER_PIXEL * size.first * size.second;
+        ftruncate(_fd, _filesize);
+
+        _filedata = static_cast<std::byte*>(mmap(nullptr, _filesize, PROT_WRITE, MAP_SHARED_VALIDATE, _fd, 0));
+        fcntl(_fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_EXEC);
+
+        _pool.reset(wl_shm_create_pool(shm, _fd, _filesize));
+
+        _buffersize = _filesize;
+        _buffer.reset(wl_shm_pool_create_buffer(_pool.get(), 0, size.first, size.second, BYTES_PER_PIXEL * size.first, WL_SHM_FORMAT_XRGB8888));
+    }
+
+    Buffer(const Buffer&) = delete;
+    Buffer(Buffer&& other) noexcept {
+        _fd = other._fd;
+        _filedata = other._filedata;
+        _filesize = other._filesize;
+        _buffersize = other._buffersize;
+
+        _pool = std::move(other._pool);
+        _buffer = std::move(other._buffer);
+
+        other._filedata = nullptr;
+    }
+
+    ~Buffer() {
+        if (_filedata) {
+            munmap(_filedata, _filesize);
+            close(_fd);
+        }
+    }
+
+    Buffer& operator=(const Buffer&) = delete;
+    Buffer& operator=(Buffer&& other) noexcept {
+        if (_filedata) {
+            munmap(_filedata, _filesize);
+            close(_fd);
+        }
+
+        _fd = other._fd;
+        _filedata = other._filedata;
+        _filesize = other._filesize;
+        _buffersize = other._buffersize;
+
+        _pool = std::move(other._pool);
+        _buffer = std::move(other._buffer);
+
+        other._filedata = nullptr;
+        return *this;
+    }
+
+    void draw(std::pair<std::int32_t, std::int32_t> size, std::uint8_t color) {
+        const auto required_buffersize = BYTES_PER_PIXEL * size.first * size.second;
+        if (required_buffersize > _filesize) {
+            ftruncate(_fd, required_buffersize);
+            _filedata = mremap(_filedata, _filesize, required_buffersize, MREMAP_MAYMOVE);
+            _filesize = required_buffersize;
+            wl_shm_pool_resize(_pool.get(), _filesize);
+        }
+        if (required_buffersize != _buffersize) {
+            _buffersize = required_buffersize;
+            _buffer.reset(wl_shm_pool_create_buffer(_pool.get(), 0, size.first, size.second, BYTES_PER_PIXEL * size.first, WL_SHM_FORMAT_XRGB8888));
+        }
+        std::memset(_filedata, color, BYTES_PER_PIXEL * size.first * size.second);
+    }
+
+    wl_buffer *handle() noexcept {
+        return _buffer.get();
+    }
+
+private:
+    int _fd;
+    void *_filedata;
+    std::size_t _filesize, _buffersize;
+
+    WaylandPointer<wl_shm_pool> _pool;
+    WaylandPointer<wl_buffer> _buffer;
+};
+
 struct Seat {
     WaylandPointer<wl_seat> seat;
     WaylandPointer<wl_keyboard> keyboard;
@@ -126,25 +209,10 @@ struct Seat {
 class Window {
 public:
     Window();
-    Window(const Window&) = delete;
-    Window(Window&&) noexcept = delete;
-    ~Window() {
-        if (_filedata) {
-            munmap(_filedata, _filesize);
-            close(_fd);
-        }
-    }
-
-    Window& operator=(const Window&) = delete;
-    Window& operator=(Window&&) noexcept = delete;
 
     void poll_events();
     void render(std::uint8_t color);
     bool should_close() const noexcept;
-
-private:
-    void reconfigure() noexcept;
-    void resize_file(std::size_t size);
 
 private:
     WaylandPointer<wl_display> _display;
@@ -170,14 +238,8 @@ private:
     WaylandPointer<xdg_toplevel> _toplevel;
     WaylandPointer<zxdg_toplevel_decoration_v1> _toplevel_decoration; // Optional
 
-    WaylandPointer<wl_shm_pool> _shm_pool;
-    WaylandPointer<wl_buffer> _buffer;
-    bool _buffer_inuse = false;
-    std::vector<WaylandPointer<wl_buffer>> _old_buffers;
-
-    int _fd = 0;
-    std::byte *_filedata = nullptr;
-    std::size_t _filesize = 0;
+    std::vector<Buffer> _usable_buffers;
+    std::vector<Buffer> _in_use_buffers;
 
     std::pair<std::int32_t, std::int32_t> _requested_size = {0, 0};
     std::pair<std::int32_t, std::int32_t> _actual_size = {0, 0};
@@ -346,7 +408,7 @@ Window::Window() {
         .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
             auto& self = *static_cast<Window *>(data);
             xdg_surface_ack_configure(surface, serial);
-            self.reconfigure();
+            self._actual_size = self._requested_size;
         }
     };
 
@@ -490,72 +552,44 @@ void Window::poll_events() {
 }
 
 void Window::render(std::uint8_t color) {
-    std::memset(_filedata, color, BYTES_PER_PIXEL * _actual_size.first * _actual_size.second);
-
-    _buffer_inuse = true;
-    wl_surface_attach(_wl_surface.get(), _buffer.get(), 0, 0);
-    wl_surface_damage_buffer(_wl_surface.get(), 0, 0, _actual_size.first, _actual_size.second);
-    wl_surface_commit(_wl_surface.get());
-}
-
-bool Window::should_close() const noexcept {
-    return _closed;
-}
-
-void Window::reconfigure() noexcept {
     static const wl_buffer_listener buffer_listener = {
         .release = [](void *data, wl_buffer *buffer) {
             auto& self = *static_cast<Window *>(data);
-            
-            if (buffer == self._buffer.get()) {
-                self._buffer_inuse = false;
-                return;
-            }
-
-            for (auto i = self._old_buffers.begin(); i != self._old_buffers.end(); ++i) {
-                if (i->get() == buffer) {
-                    self._old_buffers.erase(i);
+            for (auto i = self._in_use_buffers.begin(); i != self._in_use_buffers.end(); ++i) {
+                if (i->handle() == buffer) {
+                    self._usable_buffers.emplace_back(std::move(*i));
+                    self._in_use_buffers.erase(i);
                     return;
                 }
             }
         }
     };
 
-    const auto surface_size = std::make_pair(std::max(_requested_size.first, MIN_WINDOW_SIZE.first), std::max(_requested_size.second, MIN_WINDOW_SIZE.second));
-    const auto stride = BYTES_PER_PIXEL * surface_size.first;
-    const auto required_filesize = stride * surface_size.second;
+    _actual_size = std::make_pair(std::max(_requested_size.first, MIN_WINDOW_SIZE.first), std::max(_requested_size.second, MIN_WINDOW_SIZE.second));
 
-    if (surface_size.first != _actual_size.first || surface_size.second != _actual_size.second) {
-        if (!_filedata) {
-            _fd = memfd_create("framebuffer", MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_NOEXEC_SEAL);
-            resize_file(required_filesize);
-            fcntl(_fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_EXEC);
-
-            _shm_pool.reset(wl_shm_create_pool(_shm.get(), _fd, _filesize));
-        } else if (required_filesize > _filesize) {
-            resize_file(required_filesize);
-
-            wl_shm_pool_resize(_shm_pool.get(), _filesize);
+    auto buffer = [this]() {
+        if (!_usable_buffers.empty()) {
+            auto buffer = std::move(_usable_buffers.back());
+            _usable_buffers.pop_back();
+            return buffer;
+        } else {
+            auto buffer = Buffer(_shm.get(), _actual_size);
+            wl_buffer_add_listener(buffer.handle(), &buffer_listener, this);
+            return buffer;
         }
+    }();
 
-        _actual_size = surface_size;
-        if (_buffer_inuse) {
-            _old_buffers.emplace_back(std::move(_buffer));
-        }
-        _buffer.reset(wl_shm_pool_create_buffer(_shm_pool.get(), 0, _actual_size.first, _actual_size.second, stride, WL_SHM_FORMAT_XRGB8888));
-        wl_buffer_add_listener(_buffer.get(), &buffer_listener, this);
-        _buffer_inuse = false;
-    }
+    buffer.draw(_actual_size, color);
+
+    wl_surface_attach(_wl_surface.get(), buffer.handle(), 0, 0);
+    wl_surface_damage_buffer(_wl_surface.get(), 0, 0, _actual_size.first, _actual_size.second);
+    wl_surface_commit(_wl_surface.get());
+
+    _in_use_buffers.emplace_back(std::move(buffer));
 }
 
-void Window::resize_file(size_t size) {
-    ftruncate(_fd, size);
-
-    _filedata = static_cast<std::byte *>(_filedata
-        ? mremap(_filedata, _filesize, size, MREMAP_MAYMOVE)
-        : mmap(nullptr, size, PROT_WRITE, MAP_SHARED_VALIDATE, _fd, 0)
-    );
-    _filesize = size;
+bool Window::should_close() const noexcept {
+    return _closed;
 }
 
 int main() {
