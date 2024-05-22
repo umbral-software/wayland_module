@@ -184,7 +184,7 @@ public:
             _buffersize = required_buffersize;
             _buffer.reset(wl_shm_pool_create_buffer(_pool.get(), 0, size.first, size.second, BYTES_PER_PIXEL * size.first, WL_SHM_FORMAT_XRGB8888));
         }
-        std::memset(_filedata, color, BYTES_PER_PIXEL * size.first * size.second);
+        std::memset(_filedata, color, _buffersize);
     }
 
     wl_buffer *handle() noexcept {
@@ -601,7 +601,7 @@ int main() {
     Window window;
 
     bool ascending = true;
-    std::uint8_t color = 0xFF;
+    std::uint8_t color = 0x00;
     while (!window.should_close()) {
         window.poll_events();
         window.render(color);
