@@ -218,6 +218,13 @@ public:
     bool should_close() const noexcept;
 
 private:
+    void recalculate_size() {
+        _actual_size = std::make_pair(
+            std::max(_requested_size.first, MIN_WINDOW_SIZE.first),
+            std::max(_requested_size.second, MIN_WINDOW_SIZE.second)
+        );
+    }
+private:
     WaylandPointer<wl_display> _display;
     WaylandPointer<wl_registry> _registry;
     std::map<std::uint32_t, std::pair<std::string, std::uint32_t>> _globals;
@@ -411,7 +418,7 @@ Window::Window() {
         .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
             auto& self = *static_cast<Window *>(data);
             xdg_surface_ack_configure(surface, serial);
-            self._actual_size = self._requested_size;
+            self.recalculate_size();
         }
     };
 
@@ -573,8 +580,9 @@ void Window::render(std::uint8_t color) {
         }
     };
 
-    _actual_size = std::make_pair(std::max(_requested_size.first, MIN_WINDOW_SIZE.first), std::max(_requested_size.second, MIN_WINDOW_SIZE.second));
-
+    if (_actual_size.first == 0 || _actual_size.second == 0) {
+        recalculate_size();
+    }
     auto buffer = [this]() {
         if (!_usable_buffers.empty()) {
             auto buffer = std::move(_usable_buffers.back());
