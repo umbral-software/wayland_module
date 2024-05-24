@@ -203,45 +203,71 @@ private:
     WaylandPointer<wl_buffer> _buffer;
 };
 
-struct Seat {
-    WaylandPointer<wl_seat> seat;
-    WaylandPointer<wl_keyboard> keyboard;
-    WaylandPointer<wl_pointer> pointer;
+class Display;
+class Window;
+
+class Seat {
+public:
+    Seat(Display&, wl_seat *_seat);
+    Seat(const Seat&) = delete;
+    Seat(Seat&&) noexcept = delete;
+    ~Seat() = default;
+
+    Seat& operator=(const Seat&) = delete;
+    Seat& operator=(Seat&&) noexcept = delete;
+private:
+    Display& _display;
+
+    WaylandPointer<wl_seat> _seat;
+    WaylandPointer<wl_keyboard> _keyboard;
+    WaylandPointer<wl_pointer> _pointer;
+
+    XkbPointer<xkb_state> _xkb_state;
+    int _xkb_alt_index;
+
+    Window *_focus;
 };
 
 class Window {
 public:
-    Window();
+    Window(Display& display, const char *title);
+    Window(const Window&) = delete;
+    Window(Window&&) noexcept = delete;
+    ~Window();
 
-    void poll_events();
+    Window& operator=(const Window&) = delete;
+    Window& operator=(Window&&) noexcept = delete;
+
+    wl_surface *handle() { return _wl_surface.get(); }
+    const wl_surface *handle() const { return _wl_surface.get(); }
+
     void render(std::uint8_t color);
     bool should_close() const noexcept;
 
-private:
+    bool toggle_fullscreen() {
+        if (_have_server_decorations) {
+            if (_is_fullscreen) {
+                xdg_toplevel_unset_fullscreen(_toplevel.get());
+                _is_fullscreen = false;
+            } else {
+                xdg_toplevel_set_fullscreen(_toplevel.get(), nullptr);
+                _is_fullscreen = true;
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     void recalculate_size() {
         _actual_size = std::make_pair(
             std::max(_requested_size.first, MIN_WINDOW_SIZE.first),
             std::max(_requested_size.second, MIN_WINDOW_SIZE.second)
         );
     }
+
 private:
-    WaylandPointer<wl_display> _display;
-    WaylandPointer<wl_registry> _registry;
-    std::map<std::uint32_t, std::pair<std::string, std::uint32_t>> _globals;
-
-    WaylandPointer<wl_compositor> _compositor;
-    std::vector<Seat> _seats;
-    WaylandPointer<wl_shm> _shm;
-    WaylandPointer<xdg_wm_base> _wm_base;
-    WaylandPointer<zxdg_decoration_manager_v1> _decoration_manager; // Optional
-
-    WaylandPointer<wl_surface> _cursor_surface;
-    WaylandPointer<wl_cursor_theme> _cursor_theme;
-    std::pair<std::uint32_t, std::uint32_t> _cursor_hotspot;
-
-    XkbPointer<xkb_context> _xkb_context;
-    XkbPointer<xkb_state> _xkb_state;
-    int _xkb_alt_index;
+    Display& _display;
 
     WaylandPointer<wl_surface> _wl_surface;
     WaylandPointer<xdg_surface> _xdg_surface;
@@ -258,15 +284,97 @@ private:
     bool _closed = false;
 };
 
-Window::Window() {
+class Display {
+public:
+    Display();
+    Display(const Display&) = delete;
+    Display(Display&&) noexcept = delete;
+    ~Display() = default;
+
+    Display& operator=(const Display&) = delete;
+    Display& operator=(Display&&) noexcept = delete;
+
+    void poll_events();
+    void set_cursor(wl_pointer *pointer, std::uint32_t serial) const noexcept { wl_pointer_set_cursor(pointer, serial, _cursor_surface.get(), _cursor_hotspot.first, _cursor_hotspot.second); }
+
+    void register_window(Window *window) { _windows.emplace_back(window); }
+    void unregister_window(Window *window) { 
+        for (auto i = _windows.begin(); i != _windows.end(); ++i) {
+            if (*i == window) {
+                _windows.erase(i);
+                return;
+            }
+        }
+        throw std::runtime_error("Unregistering window that doesn't exist");
+    }
+
+    wl_compositor *compositor() noexcept { return _compositor.get(); }
+    const wl_compositor *compositor() const noexcept { return _compositor.get(); };
+    
+    zxdg_decoration_manager_v1 *decoration_manager() noexcept { return _decoration_manager.get(); };
+    const zxdg_decoration_manager_v1 *decoration_manager() const noexcept { return _decoration_manager.get(); }
+
+    wl_shm *shm() noexcept { return _shm.get(); }
+    const wl_shm *shm() const noexcept { return _shm.get(); }
+
+    xdg_wm_base *window_manager() noexcept { return _wm_base.get(); }
+    const xdg_wm_base *window_manager() const noexcept { return _wm_base.get(); }
+
+    xkb_context *xkb() noexcept { return _xkb_context.get(); }
+    const xkb_context *xkb() const noexcept { return _xkb_context.get(); }
+
+    Window *window_from_handle(wl_surface *surface) noexcept {
+        for (auto *pWindow : _windows) {
+            if (pWindow->handle() == surface) {
+                return pWindow;
+            }
+        }
+
+        return nullptr;
+    }
+
+    const Window *window_from_handle(wl_surface *surface) const noexcept {
+        for (const auto *pWindow : _windows) {
+            if (pWindow->handle() == surface) {
+                return pWindow;
+            }
+        }
+
+        return nullptr;
+    }
+
+private:
+    WaylandPointer<wl_display> _display;
+    WaylandPointer<wl_registry> _registry;
+    std::map<std::uint32_t, std::pair<std::string, std::uint32_t>> _globals;
+
+    WaylandPointer<wl_compositor> _compositor;
+    std::forward_list<Seat> _seats;
+    WaylandPointer<wl_shm> _shm;
+    WaylandPointer<xdg_wm_base> _wm_base;
+    WaylandPointer<zxdg_decoration_manager_v1> _decoration_manager; // Optional
+
+    WaylandPointer<wl_surface> _cursor_surface;
+    WaylandPointer<wl_cursor_theme> _cursor_theme;
+    std::pair<std::uint32_t, std::uint32_t> _cursor_hotspot;
+
+    XkbPointer<xkb_context> _xkb_context;
+
+    std::vector<Window *> _windows;
+};
+
+Seat::Seat(Display& display, wl_seat *seat)
+    :_display(display)
+    ,_seat(seat)
+{
     static const wl_keyboard_listener keyboard_listener {
         .keymap = [](void *data, wl_keyboard *, std::uint32_t format, int fd, std::uint32_t size){
-            auto& self = *static_cast<Window *>(data);
+            auto& self = *static_cast<Seat *>(data);
 
             switch (format) {
             case WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1: {
                 void *keymap_data = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
-                XkbPointer<xkb_keymap> keymap(xkb_keymap_new_from_buffer(self._xkb_context.get(), static_cast<const char *>(keymap_data), size, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS));
+                XkbPointer<xkb_keymap> keymap(xkb_keymap_new_from_buffer(self._display.xkb(), static_cast<const char *>(keymap_data), size, XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS));
                 munmap(keymap_data, size);
 
                 self._xkb_state.reset(xkb_state_new(keymap.get()));
@@ -278,14 +386,16 @@ Window::Window() {
             }
             close(fd);
         },
-        .enter = [](void *, wl_keyboard *, std::uint32_t, wl_surface *, wl_array *){
-            
+        .enter = [](void *data, wl_keyboard *keyboard, std::uint32_t, wl_surface *surface, wl_array *){
+            auto& self = *static_cast<Seat *>(data);
+            self._focus = self._display.window_from_handle(surface);
         },
-        .leave = [](void *, wl_keyboard *, std::uint32_t, wl_surface *){
-            
+        .leave = [](void *data, wl_keyboard *keyboard, std::uint32_t, wl_surface *){
+            auto& self = *static_cast<Seat *>(data);
+            self._focus = nullptr;
         },
         .key = [](void *data, wl_keyboard *, std::uint32_t, std::uint32_t, std::uint32_t key, std::uint32_t state){
-            auto& self = *static_cast<Window *>(data);
+            auto& self = *static_cast<Seat *>(data);
             // Convert from evdev to X keycode
             // Because X11 thought using keys 0-7 for mouse input was clever
             const auto keycode = key + WAYLAND_TO_X_KEYCODE_OFFSET;
@@ -298,14 +408,8 @@ Window::Window() {
                     switch (keysyms[i]) {
                     case XKB_KEY_Return:
                         if (xkb_state_mod_index_is_active(self._xkb_state.get(), self._xkb_alt_index, XKB_STATE_MODS_EFFECTIVE)) {
-                            if (self._have_server_decorations) {
-                                if (self._is_fullscreen) {
-                                    xdg_toplevel_unset_fullscreen(self._toplevel.get());
-                                    self._is_fullscreen = false;
-                                } else {
-                                    xdg_toplevel_set_fullscreen(self._toplevel.get(), nullptr);
-                                    self._is_fullscreen = true;
-                                }
+                            if (self._focus) {
+                                self._focus->toggle_fullscreen();
                             }
                             break;
                         } else {
@@ -326,7 +430,7 @@ Window::Window() {
             }
         },
         .modifiers = [](void *data, wl_keyboard *, std::uint32_t, std::uint32_t mods_depressed, std::uint32_t mods_latched, std::uint32_t mods_locked, std::uint32_t group){
-            auto& self = *static_cast<Window *>(data);
+            auto& self = *static_cast<Seat *>(data);
             xkb_state_update_mask(self._xkb_state.get(), mods_depressed, mods_latched, mods_locked, 0, 0, group);
         },
         .repeat_info = [](void *, wl_keyboard *, std::int32_t, std::int32_t){
@@ -336,9 +440,9 @@ Window::Window() {
 
     static const wl_pointer_listener pointer_listener {
         .enter = [](void *data, wl_pointer *pointer, std::uint32_t serial, wl_surface *, std::int32_t, std::int32_t){
-            auto& self = *static_cast<Window *>(data);
+            auto& self = *static_cast<Seat *>(data);
             
-           wl_pointer_set_cursor(pointer, serial, self._cursor_surface.get(), self._cursor_hotspot.first, self._cursor_hotspot.second);
+           self._display.set_cursor(pointer, serial);
         },
         .leave = [](void *, wl_pointer *, std::uint32_t, wl_surface *) {
             
@@ -375,83 +479,49 @@ Window::Window() {
         }
     };
 
-    static const wl_registry_listener registry_listener {
-        .global = [](void *data, wl_registry *, std::uint32_t name, const char *interface, std::uint32_t version) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            self._globals.emplace(name, std::make_pair(interface, version));
-        },
-        .global_remove = [](void *data, wl_registry *, std::uint32_t name) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            self._globals.erase(name);
-        }
-    };
-
     static const wl_seat_listener seat_listener {
-        .capabilities = [](void *data, wl_seat *wl_seat, std::uint32_t capabilities){
-            auto& self = *static_cast<Window *>(data);
-            for (auto& seat : self._seats) {
-                if (seat.seat.get() == wl_seat) {
-                    const auto has_pointer = !!(capabilities & WL_SEAT_CAPABILITY_POINTER);
-                    if (has_pointer && !seat.pointer) {
-                        seat.pointer.reset(wl_seat_get_pointer(wl_seat));
-                        wl_pointer_add_listener(seat.pointer.get(), &pointer_listener, data);
-                    } else if (!has_pointer && seat.pointer) {
-                        seat.pointer.reset();
-                    }
+        .capabilities = [](void *data, wl_seat *, std::uint32_t capabilities){
+            auto& self = *static_cast<Seat *>(data);
+            
+            const auto has_pointer = !!(capabilities & WL_SEAT_CAPABILITY_POINTER);
+            if (has_pointer && !self._pointer) {
+                self._pointer.reset(wl_seat_get_pointer(self._seat.get()));
+                wl_pointer_add_listener(self._pointer.get(), &pointer_listener, data);
+            } else if (!has_pointer && self._pointer) {
+                self._pointer.reset();
+            }
 
-                    const auto has_keyboard = !!(capabilities && WL_SEAT_CAPABILITY_KEYBOARD);
-                    if (has_keyboard & !seat.keyboard) {
-                        seat.keyboard.reset(wl_seat_get_keyboard(wl_seat));
-                        wl_keyboard_add_listener(seat.keyboard.get(), &keyboard_listener, data);
-                    } else if (!has_keyboard && seat.keyboard) {
-                        seat.keyboard.reset();
-                    }
-                }
+            const auto has_keyboard = !!(capabilities && WL_SEAT_CAPABILITY_KEYBOARD);
+            if (has_keyboard & !self._keyboard) {
+                self._keyboard.reset(wl_seat_get_keyboard(self._seat.get()));
+                wl_keyboard_add_listener(self._keyboard.get(), &keyboard_listener, data);
+            } else if (!has_keyboard && self._keyboard) {
+                self._keyboard.reset();
             }
         },
         .name = [](void *, wl_seat *, const char *){
 
         }
     };
+    wl_seat_add_listener(_seat.get(), &seat_listener, this);
+}
 
-    static const xdg_surface_listener surface_listener {
-        .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            xdg_surface_ack_configure(surface, serial);
-            self.recalculate_size();
-        }
-    };
+Display::Display() {
 
-    static const xdg_toplevel_listener toplevel_listener {
-        .configure = [](void *data, xdg_toplevel *, std::int32_t width, std::int32_t height, wl_array *) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            self._requested_size = { width, height };
+    static const wl_registry_listener registry_listener {
+        .global = [](void *data, wl_registry *, std::uint32_t name, const char *interface, std::uint32_t version) noexcept {
+            auto& self = *static_cast<Display *>(data);
+            self._globals.emplace(name, std::make_pair(interface, version));
         },
-        .close = [](void *data, xdg_toplevel *) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            self._closed = true;
+        .global_remove = [](void *data, wl_registry *, std::uint32_t name) noexcept {
+            auto& self = *static_cast<Display *>(data);
+            self._globals.erase(name);
         }
     };
 
     static const xdg_wm_base_listener wm_base_listener {
         .ping = [](void *data, xdg_wm_base *wm_base, std::uint32_t serial) noexcept {
             xdg_wm_base_pong(wm_base, serial);
-        }
-    };
-
-    static const zxdg_toplevel_decoration_v1_listener toplevel_decoration_listener {
-        .configure = [](void *data, zxdg_toplevel_decoration_v1 *, std::uint32_t mode) noexcept {
-            auto& self = *static_cast<Window *>(data);
-            switch(mode) {
-            default:
-            case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
-                xdg_toplevel_set_fullscreen(self._toplevel.get(), nullptr);
-                self._have_server_decorations = false;
-                break;
-            case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
-                self._have_server_decorations = true;
-                break;
-            }
         }
     };
 
@@ -472,7 +542,7 @@ Window::Window() {
             _compositor.reset(static_cast<wl_compositor *>(wl_registry_bind(_registry.get(), name, &wl_compositor_interface, WL_COMPOSITOR_DESIRED_VERSION)));
         }
         if ("wl_seat" == interface && WL_SEAT_DESIRED_VERSION <= version) {
-            _seats.emplace_back(WaylandPointer<wl_seat>{static_cast<wl_seat *>(wl_registry_bind(_registry.get(), name, &wl_seat_interface, WL_SEAT_DESIRED_VERSION))});
+            _seats.emplace_front(*this, static_cast<wl_seat *>(wl_registry_bind(_registry.get(), name, &wl_seat_interface, WL_SEAT_DESIRED_VERSION)));
         }
         if ("wl_shm" == interface && WL_SHM_DESIRED_VERSION <= version) {
             _shm.reset(static_cast<wl_shm *>(wl_registry_bind(_registry.get(), name, &wl_shm_interface, WL_SHM_DESIRED_VERSION)));
@@ -511,25 +581,62 @@ Window::Window() {
     wl_surface_attach(_cursor_surface.get(), wl_cursor_image_get_buffer(cursor_image), 0, 0);
     wl_surface_commit(_cursor_surface.get());
 
-    _xkb_context.reset(xkb_context_new(XKB_CONTEXT_NO_FLAGS));
-
-    for (const auto& seat : _seats) {
-        wl_seat_add_listener(seat.seat.get(), &seat_listener, this);
-    }
-
     xdg_wm_base_add_listener(_wm_base.get(), &wm_base_listener, this);
 
-    _wl_surface.reset(wl_compositor_create_surface(_compositor.get()));
-    _xdg_surface.reset(xdg_wm_base_get_xdg_surface(_wm_base.get(), _wl_surface.get()));
+    _xkb_context.reset(xkb_context_new(XKB_CONTEXT_NO_FLAGS));
+}
+
+Window::Window(Display& display, const char *title)
+    :_display(display)
+{
+    static const xdg_toplevel_listener toplevel_listener {
+        .configure = [](void *data, xdg_toplevel *, std::int32_t width, std::int32_t height, wl_array *) noexcept {
+            auto& self = *static_cast<Window *>(data);
+            self._requested_size = { width, height };
+        },
+        .close = [](void *data, xdg_toplevel *) noexcept {
+            auto& self = *static_cast<Window *>(data);
+            self._closed = true;
+        }
+    };
+
+    static const xdg_surface_listener surface_listener {
+        .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
+            auto& self = *static_cast<Window *>(data);
+            xdg_surface_ack_configure(surface, serial);
+            self.recalculate_size();
+        }
+    };
+
+    static const zxdg_toplevel_decoration_v1_listener toplevel_decoration_listener {
+        .configure = [](void *data, zxdg_toplevel_decoration_v1 *, std::uint32_t mode) noexcept {
+            auto& self = *static_cast<Window *>(data);
+            switch(mode) {
+            default:
+            case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
+                xdg_toplevel_set_fullscreen(self._toplevel.get(), nullptr);
+                self._have_server_decorations = false;
+                break;
+            case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
+                self._have_server_decorations = true;
+                break;
+            }
+        }
+    };
+
+    _display.register_window(this);
+
+    _wl_surface.reset(wl_compositor_create_surface(_display.compositor()));
+    _xdg_surface.reset(xdg_wm_base_get_xdg_surface(_display.window_manager(), _wl_surface.get()));
     xdg_surface_add_listener(_xdg_surface.get(), &surface_listener, this);
 
     _toplevel.reset(xdg_surface_get_toplevel(_xdg_surface.get()));
     xdg_toplevel_add_listener(_toplevel.get(), &toplevel_listener, this);
     xdg_toplevel_set_min_size(_toplevel.get(), MIN_WINDOW_SIZE.first, MIN_WINDOW_SIZE.second);
-    xdg_toplevel_set_title(_toplevel.get(), WINDOW_TITLE);
-
-    if (_decoration_manager) {
-        _toplevel_decoration.reset(zxdg_decoration_manager_v1_get_toplevel_decoration(_decoration_manager.get(), _toplevel.get()));
+    xdg_toplevel_set_title(_toplevel.get(), title);
+    
+    if (_display.decoration_manager()) {
+        _toplevel_decoration.reset(zxdg_decoration_manager_v1_get_toplevel_decoration(_display.decoration_manager(), _toplevel.get()));
         zxdg_toplevel_decoration_v1_add_listener(_toplevel_decoration.get(), &toplevel_decoration_listener, this);
         zxdg_toplevel_decoration_v1_set_mode(_toplevel_decoration.get(), ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     } else {
@@ -538,6 +645,11 @@ Window::Window() {
     }
 
     wl_surface_commit(_wl_surface.get());
+
+}
+
+Window::~Window() {
+    _display.unregister_window(this);
 }
 
 static short poll_single(int fd, short events, int timeout) {
@@ -546,7 +658,7 @@ static short poll_single(int fd, short events, int timeout) {
     return pfd.revents;
 }
 
-void Window::poll_events() {
+void Display::poll_events() {
     while (wl_display_prepare_read(_display.get())) {
         wl_display_dispatch_pending(_display.get());
     }
@@ -589,7 +701,7 @@ void Window::render(std::uint8_t color) {
             _usable_buffers.pop_back();
             return buffer;
         } else {
-            auto buffer = Buffer(_shm.get(), _actual_size);
+            auto buffer = Buffer(_display.shm(), _actual_size);
             wl_buffer_add_listener(buffer.handle(), &buffer_listener, this);
             return buffer;
         }
@@ -609,12 +721,13 @@ bool Window::should_close() const noexcept {
 }
 
 int main() {
-    Window window;
+    Display display;
+    Window window(display, WINDOW_TITLE);
 
     bool ascending = true;
     std::uint8_t color = 0x00;
     while (!window.should_close()) {
-        window.poll_events();
+        display.poll_events();
         window.render(color);
 
         color += ascending ? 1 : -1;
