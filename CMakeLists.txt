@@ -27,4 +27,4 @@ ecm_add_wayland_client_protocol(demo PROTOCOL ${WaylandProtocols_DATADIR}/stable
 ecm_add_wayland_client_protocol(demo PROTOCOL ${WaylandProtocols_DATADIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml BASENAME xdg-decoration)
 target_include_directories(demo PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(demo std Wayland::Client Wayland::Cursor X11::xkbcommon)
-target_sources(demo PRIVATE FILE_SET CXX_MODULES FILES wayland.cppm wayland/buffer.cppm wayland/common.cppm wayland/display.cppm wayland/external.cppm wayland/seat.cppm wayland/window.cppm xkb.cppm xkb/external.cppm)
+target_sources(demo PRIVATE FILE_SET CXX_MODULES FILES wayland.cppm wayland/common.cppm wayland/display.cppm wayland/external.cppm wayland/seat.cppm wayland/window.cppm xkb.cppm xkb/external.cppm)

@@ -1,6 +1,5 @@
 export module wayland:window;
 
-import :buffer;
 import :common;
 import :external;
 import std;
@@ -28,7 +27,11 @@ public:
             .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
                 auto& self = *static_cast<Window *>(data);
                 xdg_surface_ack_configure(surface, serial);
-                self.recalculate_size();
+                self._actual_size = std::make_pair(
+                    std::max(self._requested_size.first, MIN_WINDOW_SIZE.first),
+                    std::max(self._requested_size.second, MIN_WINDOW_SIZE.second)
+                );
+                self.configure(self._actual_size);
             }
         };
 
@@ -83,52 +86,13 @@ public:
     wl_surface *handle() noexcept final { return _wl_surface.get(); }
     const wl_surface *handle() const noexcept final { return _wl_surface.get(); }
 
-    void key_down(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
-    void key_up(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
-    void pointer_click(std::int32_t x, std::int32_t y) override = 0;
-    void pointer_release(std::int32_t x, std::int32_t y) override = 0;
-    void text(std::string_view string) override = 0;
-
-    virtual void render(void *buffer, std::pair<std::int32_t, std::int32_t> size) = 0;
-
-    void render_internal() final {
-        static const wl_buffer_listener buffer_listener = {
-            .release = [](void *data, wl_buffer *buffer) {
-                auto& self = *static_cast<Window *>(data);
-                for (auto i = self._in_use_buffers.begin(); i != self._in_use_buffers.end(); ++i) {
-                    if (i->handle() == buffer) {
-                        self._usable_buffers.emplace_back(std::move(*i));
-                        self._in_use_buffers.erase(i);
-                        return;
-                    }
-                }
-            }
-        };
-
-        if (_actual_size.first == 0 || _actual_size.second == 0) {
-            recalculate_size();
-        }
-        auto buffer = [this]() {
-            if (!_usable_buffers.empty()) {
-                auto buffer = std::move(_usable_buffers.back());
-                _usable_buffers.pop_back();
-                return buffer;
-            } else {
-                auto buffer = Buffer(_display.shm(), _actual_size);
-                wl_buffer_add_listener(buffer.handle(), &buffer_listener, this);
-                return buffer;
-            }
-        }();
-
-        buffer.resize(_actual_size);
-        render(buffer.data(), _actual_size);
-
-        wl_surface_attach(_wl_surface.get(), buffer.handle(), 0, 0);
-        wl_surface_damage_buffer(_wl_surface.get(), 0, 0, _actual_size.first, _actual_size.second);
-        wl_surface_commit(_wl_surface.get());
-
-        _in_use_buffers.emplace_back(std::move(buffer));
-    }
+    virtual void configure(std::pair<std::int32_t, std::int32_t> size) = 0;
+    virtual void key_down(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
+    virtual void key_up(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
+    virtual void pointer_click(std::int32_t x, std::int32_t y) override = 0;
+    virtual void pointer_release(std::int32_t x, std::int32_t y) override = 0;
+    virtual void render() = 0;
+    virtual void text(std::string_view string) override = 0;
 
     bool should_close() const noexcept { return _closed; }
 
@@ -147,13 +111,12 @@ public:
         }
     }
 
-    void recalculate_size() {
-        _actual_size = std::make_pair(
-            std::max(_requested_size.first, MIN_WINDOW_SIZE.first),
-            std::max(_requested_size.second, MIN_WINDOW_SIZE.second)
-        );
+private:
+    void render_internal() final {
+        if (_actual_size.first != 0 && _actual_size.second != 0) {
+            render();
+        }
     }
-
 private:
     IDisplayInternal& _display;
 
@@ -161,9 +124,6 @@ private:
     WaylandPointer<xdg_surface> _xdg_surface;
     WaylandPointer<xdg_toplevel> _toplevel;
     WaylandPointer<zxdg_toplevel_decoration_v1> _toplevel_decoration; // Optional
-
-    std::vector<Buffer> _usable_buffers;
-    std::vector<Buffer> _in_use_buffers;
 
     std::pair<std::int32_t, std::int32_t> _requested_size = {0, 0};
     std::pair<std::int32_t, std::int32_t> _actual_size = {0, 0};

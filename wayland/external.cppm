@@ -8,10 +8,6 @@ export module wayland:external;
 
 export {
     using ::wl_array;
-    using ::wl_buffer;
-    using ::wl_buffer_add_listener;
-    using ::wl_buffer_destroy;
-    using ::wl_buffer_listener;
     using ::wl_compositor;
     using ::wl_compositor_create_surface;
     using ::wl_compositor_destroy;
@@ -57,13 +53,8 @@ export {
     using ::wl_seat_listener;
     using ::wl_seat_release;
     using ::wl_shm;
-    using ::wl_shm_create_pool;
     using ::wl_shm_destroy;
     using ::wl_shm_interface;
-    using ::wl_shm_pool;
-    using ::wl_shm_pool_create_buffer;
-    using ::wl_shm_pool_destroy;
-    using ::wl_shm_pool_resize;
     using ::wl_surface;
     using ::wl_surface_attach;
     using ::wl_surface_commit;

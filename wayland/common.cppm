@@ -5,9 +5,6 @@ import std;
 import xkb;
 
 struct WaylandDeleter {
-    void operator()(wl_buffer *buffer) const noexcept {
-        wl_buffer_destroy(buffer);
-    }
     void operator()(wl_compositor *compositor) const noexcept {
         wl_compositor_destroy(compositor);
     }
@@ -31,9 +28,6 @@ struct WaylandDeleter {
     }
     void operator()(wl_shm *shm) const noexcept {
         wl_shm_destroy(shm);
-    }
-    void operator()(wl_shm_pool *shm_pool) const noexcept {
-        wl_shm_pool_destroy(shm_pool);
     }
     void operator()(wl_surface *surface) const noexcept {
         wl_surface_destroy(surface);
