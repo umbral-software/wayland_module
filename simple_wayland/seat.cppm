@@ -8,9 +8,9 @@ export module simple_wayland:seat;
 
 import :common;
 import :window;
+import simple_xkb;
 import std;
 import wayland;
-import xkb;
 
 static constexpr std::size_t WAYLAND_TO_X_KEYCODE_OFFSET = 8;
 

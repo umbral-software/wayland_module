@@ -2,7 +2,7 @@ export module simple_wayland:common;
 
 import std;
 import wayland;
-import xkb;
+import xkbcommon;
 
 struct WaylandDeleter {
     void operator()(wl_buffer *buffer) const noexcept {
@@ -60,24 +60,6 @@ concept WaylandDeletable = std::invocable<WaylandDeleter, T*>;
 
 export template<WaylandDeletable T>
 using WaylandPointer = std::unique_ptr<T, WaylandDeleter>;
-
-struct XkbDeleter {
-    void operator()(xkb_context *context) {
-        xkb_context_unref(context);
-    }
-    void operator()(xkb_keymap *keymap) {
-        xkb_keymap_unref(keymap);
-    }
-    void operator()(xkb_state *state) {
-        xkb_state_unref(state);
-    }
-};
-
-template<typename T>
-concept XkbDeletable = std::invocable<XkbDeleter, T*>;
-
-export template<XkbDeletable T>
-using XkbPointer = std::unique_ptr<T, XkbDeleter>;
 
 export class IWindowInternal {
 protected:

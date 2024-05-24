@@ -5,9 +5,9 @@ export module simple_wayland:display;
 
 import :common;
 import :seat;
+import simple_xkb;
 import std;
 import wayland;
-import xkb;
 
 static constexpr char DEFAULT_CURSOR_NAME[] = "default";
 static constexpr std::uint8_t DEFAULT_CURSOR_SIZE = 16;
