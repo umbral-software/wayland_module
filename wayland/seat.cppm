@@ -3,13 +3,16 @@ module;
 #include <sys/mman.h>
 #include <unistd.h>
 #include <xkbcommon/xkbcommon-names.h>
+
+#include <cstdint>
+#include <string>
+#include <vector>
 export module wayland:seat;
 
 import :common;
 import :external;
 import :window;
 import xkb;
-import std;
 
 static constexpr std::size_t WAYLAND_TO_X_KEYCODE_OFFSET = 8;
 

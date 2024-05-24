@@ -1,13 +1,19 @@
 module;
-#include <errno.h>
 #include <poll.h>
+
+#include <cerrno>
+#include <cstdint>
+#include <forward_list>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
 export module wayland:display;
 
 import :common;
 import :external;
 import :seat;
 import xkb;
-import std;
 
 static constexpr char DEFAULT_CURSOR_NAME[] = "default";
 static constexpr std::uint8_t DEFAULT_CURSOR_SIZE = 16;

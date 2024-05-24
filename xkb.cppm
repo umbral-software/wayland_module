@@ -1,6 +1,8 @@
+module;
+#include <concepts>
+#include <memory>
 export module xkb;
 
-import std;
 export import :external;
 
 struct XkbDeleter {

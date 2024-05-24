@@ -1,7 +1,9 @@
+module;
+#include <concepts>
+#include <memory>
 export module wayland:common;
 
 import :external;
-import std;
 import xkb;
 
 struct WaylandDeleter {

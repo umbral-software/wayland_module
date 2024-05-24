@@ -1,8 +1,12 @@
 import wayland;
-import std;
 import xkb;
 
 #include <xkbcommon/xkbcommon-keysyms.h>
+
+#include <cstdint>
+#include <cstdio>
+#include <string_view>
+#include <utility>
 
 static constexpr char WINDOW_TITLE[] = "Hello Wayland";
 

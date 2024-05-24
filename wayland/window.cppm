@@ -1,8 +1,11 @@
+module;
+#include <cstdint>
+#include <string_view>
+#include <utility>
 export module wayland:window;
 
 import :common;
 import :external;
-import std;
 import xkb;
 
 static constexpr std::pair<std::int32_t, std::int32_t> MIN_WINDOW_SIZE = { 800, 600 };
