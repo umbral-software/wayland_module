@@ -66,7 +66,15 @@ public:
         return *this;
     }
 
-    void draw(std::pair<std::int32_t, std::int32_t> size, std::uint8_t color) {
+    void *data() noexcept {
+        return _filedata;
+    }
+
+    const void *data() const noexcept {
+        return _filedata;
+    }
+
+    void resize(std::pair<std::int32_t, std::int32_t> size) {
         const auto required_filesize = BYTES_PER_PIXEL * size.first * size.second;
         if (required_filesize > _filesize) {
             ftruncate(_fd, required_filesize);
@@ -75,8 +83,6 @@ public:
             wl_shm_pool_resize(_pool.get(), _filesize);
         }
         
-        std::memset(_filedata, color, required_filesize);
-
         if (size != _buffersize) {
             _buffer.reset(wl_shm_pool_create_buffer(_pool.get(), 0, size.first, size.second, BYTES_PER_PIXEL * size.first, WL_SHM_FORMAT_XRGB8888));
             _buffersize = size;

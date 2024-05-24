@@ -147,6 +147,10 @@ public:
         if (wl_display_get_error(_display.get())) {
             throw std::runtime_error("Wayland protocol error");
         }
+        
+        for (auto *pWindow : _windows) {
+            pWindow->render_internal();
+        }
     }
 
 private:

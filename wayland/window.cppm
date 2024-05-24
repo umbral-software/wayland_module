@@ -4,6 +4,7 @@ import :buffer;
 import :common;
 import :external;
 import std;
+import xkb;
 
 static constexpr std::pair<std::int32_t, std::int32_t> MIN_WINDOW_SIZE = { 800, 600 };
 
@@ -79,10 +80,18 @@ public:
     Window& operator=(const Window&) = delete;
     Window& operator=(Window&&) noexcept = delete;
 
-    wl_surface *handle() { return _wl_surface.get(); }
-    const wl_surface *handle() const { return _wl_surface.get(); }
+    wl_surface *handle() noexcept final { return _wl_surface.get(); }
+    const wl_surface *handle() const noexcept final { return _wl_surface.get(); }
 
-    void render(std::uint8_t color) {
+    void key_down(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
+    void key_up(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override = 0;
+    void pointer_click(std::int32_t x, std::int32_t y) override = 0;
+    void pointer_release(std::int32_t x, std::int32_t y) override = 0;
+    void text(std::string_view string) override = 0;
+
+    virtual void render(void *buffer, std::pair<std::int32_t, std::int32_t> size) = 0;
+
+    void render_internal() final {
         static const wl_buffer_listener buffer_listener = {
             .release = [](void *data, wl_buffer *buffer) {
                 auto& self = *static_cast<Window *>(data);
@@ -111,7 +120,8 @@ public:
             }
         }();
 
-        buffer.draw(_actual_size, color);
+        buffer.resize(_actual_size);
+        render(buffer.data(), _actual_size);
 
         wl_surface_attach(_wl_surface.get(), buffer.handle(), 0, 0);
         wl_surface_damage_buffer(_wl_surface.get(), 0, 0, _actual_size.first, _actual_size.second);
@@ -122,7 +132,7 @@ public:
 
     bool should_close() const noexcept { return _closed; }
 
-    bool toggle_fullscreen() noexcept {
+    bool toggle_fullscreen() noexcept final {
         if (_have_server_decorations) {
             if (_is_fullscreen) {
                 xdg_toplevel_unset_fullscreen(_toplevel.get());

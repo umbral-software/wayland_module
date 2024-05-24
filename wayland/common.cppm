@@ -65,8 +65,16 @@ export class IWindowInternal {
 protected:
     ~IWindowInternal() = default;
 public:
-    virtual wl_surface *handle() = 0;
-    virtual const wl_surface *handle() const = 0;
+    virtual wl_surface *handle() noexcept = 0;
+    virtual const wl_surface *handle() const noexcept = 0;
+
+    virtual void key_down(xkb_keysym_t key, bool alt, bool ctrl, bool shift) = 0;
+    virtual void key_up(xkb_keysym_t key, bool alt, bool ctrl, bool shift) = 0;
+    virtual void pointer_click(std::int32_t x, std::int32_t y) = 0;
+    virtual void pointer_release(std::int32_t x, std::int32_t y) = 0;
+    virtual void text(std::string_view string) = 0;
+
+    virtual void render_internal() = 0;
 
     virtual bool toggle_fullscreen() noexcept = 0;
 };
