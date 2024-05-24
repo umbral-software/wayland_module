@@ -27,4 +27,4 @@ ecm_add_wayland_client_protocol(vfighter PROTOCOL ${WaylandProtocols_DATADIR}/st
 ecm_add_wayland_client_protocol(vfighter PROTOCOL ${WaylandProtocols_DATADIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml BASENAME xdg-decoration)
 target_include_directories(vfighter PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(vfighter std Wayland::Client Wayland::Cursor X11::xkbcommon)
-target_sources(vfighter PRIVATE FILE_SET CXX_MODULES FILES wayland.cppm xkb.cppm)
+target_sources(vfighter PRIVATE FILE_SET CXX_MODULES FILES simple_wayland.cppm simple_wayland/buffer.cppm simple_wayland/common.cppm simple_wayland/display.cppm simple_wayland/seat.cppm simple_wayland/window.cppm wayland.cppm xkb.cppm)
