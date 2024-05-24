@@ -550,7 +550,7 @@ void Window::poll_events() {
     while (wl_display_prepare_read(_display.get())) {
         wl_display_dispatch_pending(_display.get());
     }
-    while (wl_display_flush(_display.get()) && errno == EAGAIN) {
+    while (wl_display_flush(_display.get()) < 0 && EAGAIN == errno) {
         poll_single(wl_display_get_fd(_display.get()), POLLOUT, -1);
     }
 
