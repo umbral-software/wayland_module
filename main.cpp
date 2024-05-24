@@ -286,11 +286,11 @@ Window::Window() {
         },
         .key = [](void *data, wl_keyboard *, std::uint32_t, std::uint32_t, std::uint32_t key, std::uint32_t state){
             auto& self = *static_cast<Window *>(data);
+            // Convert from evdev to X keycode
+            // Because X11 thought using keys 0-7 for mouse input was clever
             const auto keycode = key + WAYLAND_TO_X_KEYCODE_OFFSET;
 
             if (WL_KEYBOARD_KEY_STATE_PRESSED == state) {
-                // Convert from evdev to X keycode
-                // Because X11 thought using keys 0-7 for mouse input was clever
                 const xkb_keysym_t *keysyms;
                 const auto num_keysyms = xkb_state_key_get_syms(self._xkb_state.get(), keycode, &keysyms);
 
