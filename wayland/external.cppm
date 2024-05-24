@@ -1,5 +1,4 @@
 module;
-#include <math.h> // Hack on Hack alert, needed otherwise wayland includes it and #define static causes it to explode
 #define static // Hack to allow exporting wayland wrapper stubs from a module
 #include "wayland-xdg-shell-client-protocol.h"
 #include "wayland-xdg-decoration-client-protocol.h"
