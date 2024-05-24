@@ -1,8 +1,8 @@
-export module simple_wayland:common;
+export module wayland:common;
 
+import :external;
 import std;
-import wayland;
-import xkbcommon;
+import xkb;
 
 struct WaylandDeleter {
     void operator()(wl_buffer *buffer) const noexcept {

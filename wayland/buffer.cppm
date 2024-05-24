@@ -2,11 +2,11 @@ module;
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-export module simple_wayland:buffer;
+export module wayland:buffer;
 
 import :common;
+import :external;
 import std;
-import wayland;
 
 static constexpr std::size_t BYTES_PER_PIXEL = sizeof(std::uint32_t);
 

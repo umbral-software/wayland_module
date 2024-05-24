@@ -1,4 +1,4 @@
-import simple_wayland;
+import wayland;
 import std;
 
 static constexpr char WINDOW_TITLE[] = "Hello Wayland";

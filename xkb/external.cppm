@@ -1,6 +1,6 @@
 module;
 #include <xkbcommon/xkbcommon.h>
-export module xkbcommon;
+export module xkb:external;
 
 export {
     using ::xkb_context;
