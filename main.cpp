@@ -54,8 +54,6 @@ int main() {
     Display display;
     SimpleWindow window(display, WINDOW_TITLE);
 
-    bool ascending = true;
-    std::uint8_t color = 0x00;
     while (!window.should_close()) {
         display.poll_events();
     }
