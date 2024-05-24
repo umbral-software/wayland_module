@@ -1,11 +1,14 @@
 module;
+#include "wayland-xdg-shell-client-protocol.h"
+#include "wayland-xdg-decoration-client-protocol.h"
+#include <xkbcommon/xkbcommon.h>
+
 #include <cstdint>
 #include <string_view>
 #include <utility>
 export module wayland:window;
 
 import :common;
-import :external;
 import xkb;
 
 static constexpr std::pair<std::int32_t, std::int32_t> MIN_WINDOW_SIZE = { 800, 600 };

@@ -1,7 +1,7 @@
 import wayland;
 import xkb;
 
-#include <xkbcommon/xkbcommon-keysyms.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include <cstdint>
 #include <cstdio>

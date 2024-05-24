@@ -2,7 +2,8 @@ module;
 #include <linux/input-event-codes.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <xkbcommon/xkbcommon-names.h>
+#include <wayland-client-protocol.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include <cstdint>
 #include <string>
@@ -10,7 +11,6 @@ module;
 export module wayland:seat;
 
 import :common;
-import :external;
 import :window;
 import xkb;
 

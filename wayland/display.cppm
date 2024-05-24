@@ -1,5 +1,9 @@
 module;
 #include <poll.h>
+#include <wayland-cursor.h>
+#include "wayland-xdg-shell-client-protocol.h"
+#include "wayland-xdg-decoration-client-protocol.h"
+#include <xkbcommon/xkbcommon.h>
 
 #include <cerrno>
 #include <cstdint>
@@ -11,7 +15,6 @@ module;
 export module wayland:display;
 
 import :common;
-import :external;
 import :seat;
 import xkb;
 

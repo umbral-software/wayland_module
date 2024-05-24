@@ -1,9 +1,13 @@
 module;
+#include <wayland-cursor.h>
+#include "wayland-xdg-shell-client-protocol.h"
+#include "wayland-xdg-decoration-client-protocol.h"
+#include <xkbcommon/xkbcommon.h>
+
 #include <concepts>
 #include <memory>
 export module wayland:common;
 
-import :external;
 import xkb;
 
 struct WaylandDeleter {
