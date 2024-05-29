@@ -33,11 +33,15 @@ public:
             .configure = [](void *data, xdg_surface *surface, std::uint32_t serial) noexcept {
                 auto& self = *static_cast<Window *>(data);
                 xdg_surface_ack_configure(surface, serial);
+
+                const auto oldSize = self._actual_size;
                 self._actual_size = std::make_pair(
                     std::max(self._requested_size.first, MIN_WINDOW_SIZE.first),
                     std::max(self._requested_size.second, MIN_WINDOW_SIZE.second)
                 );
-                self.configure(self._actual_size);
+                if (oldSize != self._actual_size) {
+                    self.configure(self._actual_size);
+                }
             }
         };
 

@@ -1,3 +1,4 @@
+import vulkan;
 import wayland;
 import xkb;
 
@@ -13,22 +14,20 @@ static constexpr char WINDOW_TITLE[] = "Hello Wayland";
 class SimpleWindow final : public Window {
 public:
     SimpleWindow(Display& display, const char *title)
-        :Window(display, title)
+        :Window(display, title),
+        _renderer(display.handle(), handle()),
+        _color(0), _ascending(true)
     {
 
     }
 
     void configure(std::pair<std::int32_t, std::int32_t> size) override {
-        std::printf("%dx%d\n", size.first, size.second);
+        _renderer.resize({size.first, size.second});
     }
 
     void key_down(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override {
-        if (key == XKB_KEY_Return)  {
-            if (alt) {
-                toggle_fullscreen();
-            } else {
-                std::putchar('\n');
-            }
+        if (key == XKB_KEY_Return && alt) {
+            toggle_fullscreen();
         }
     }
     void key_up(xkb_keysym_t key, bool alt, bool ctrl, bool shift) override {
@@ -41,11 +40,21 @@ public:
         
     }
     void render() override {
-        std::putchar('.');
+        _color = _color + (_ascending ? 1 : -1);
+        if (_ascending && _color == UINT8_MAX || !_ascending && !_color)
+        {
+            _ascending = !_ascending;
+        }
+        _renderer.render(_color);
     }
     void text(std::string_view string) override {
         
     }
+
+private:
+    Renderer _renderer;
+    std::uint8_t _color;
+    bool _ascending;
 };
 
 int main() {
