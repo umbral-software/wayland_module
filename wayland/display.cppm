@@ -138,6 +138,9 @@ public:
     Display& operator=(const Display&) = delete;
     Display& operator=(Display&&) noexcept = delete;
 
+    wl_display *handle() noexcept { return _display.get(); }
+    const wl_display *handle() const noexcept { return _display.get(); }
+
     void poll_events() {
         while (wl_display_prepare_read(_display.get())) {
             wl_display_dispatch_pending(_display.get());
