@@ -73,7 +73,6 @@ public:
                     const auto keycode = key + WAYLAND_TO_X_KEYCODE_OFFSET;
 
                     const auto keys = keycode_to_keysyms(self._state.get(), keycode);
-                    const auto mods = xkb_state_serialize_mods(self._state.get(), XKB_STATE_MODS_EFFECTIVE);
 
                     switch(state) {
                     case XKB_KEY_DOWN:
