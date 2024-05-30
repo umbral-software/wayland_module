@@ -116,86 +116,134 @@ public:
     Renderer& operator=(Renderer&&) noexcept = default;
 
     void render(std::uint8_t color) {
+        if (!_swapchain) {
+            rebuild_swapchain();
+        }
+
         _frameIndex = (_frameIndex + 1) % _frameData.size();
         std::ignore = _device->waitForFences(*frame().fence, true, UINT32_MAX);
 
-        const auto [_, imageIndex] = _device->acquireNextImageKHR(*_swapchain, UINT32_MAX, *frame().semaphore);
-        _imageIndex = imageIndex;
+        try {
+            const auto [acquireResult, imageIndex] = _device->acquireNextImageKHR(*_swapchain, UINT32_MAX, *frame().semaphore);
+            _imageIndex = imageIndex;
 
-        _device->resetCommandPool(*frame().commandPool);
+            _device->resetCommandPool(*frame().commandPool);
 
-        const vk::CommandBufferBeginInfo beginInfo {
-            .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
-        };
-        frame().commandBuffer.begin(beginInfo);
+            const vk::CommandBufferBeginInfo beginInfo {
+                .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit
+            };
+            frame().commandBuffer.begin(beginInfo);
 
-        const vk::ImageMemoryBarrier initBarrier {
-            .oldLayout = vk::ImageLayout::eUndefined,
-            .newLayout = vk::ImageLayout::eTransferDstOptimal,
-            .image = image().image,
-            .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
-        };
-        frame().commandBuffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
-            vk::DependencyFlagBits{},
-            nullptr, nullptr, initBarrier);
+            const vk::ImageMemoryBarrier initBarrier {
+                .oldLayout = vk::ImageLayout::eUndefined,
+                .newLayout = vk::ImageLayout::eTransferDstOptimal,
+                .image = image().image,
+                .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+            };
+            frame().commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
+                vk::DependencyFlagBits{},
+                nullptr, nullptr, initBarrier);
 
-        const auto colorFloat = static_cast<float>(color) / std::numeric_limits<decltype(color)>::max();
-        const vk::ClearColorValue clearColor {
-            .float32 = {{ colorFloat, colorFloat, colorFloat, 1.0f }}
-        };
-        const vk::ImageSubresourceRange clearRange { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
-        frame().commandBuffer.clearColorImage(
-            image().image,
-            vk::ImageLayout::eTransferDstOptimal,
-            clearColor,
-            clearRange);
+            const auto colorFloat = static_cast<float>(color) / std::numeric_limits<decltype(color)>::max();
+            const vk::ClearColorValue clearColor {
+                .float32 = {{ colorFloat, colorFloat, colorFloat, 1.0f }}
+            };
+            const vk::ImageSubresourceRange clearRange { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 };
+            frame().commandBuffer.clearColorImage(
+                image().image,
+                vk::ImageLayout::eTransferDstOptimal,
+                clearColor,
+                clearRange);
 
-        const vk::ImageMemoryBarrier finiBarrier{
-            .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-            .newLayout = vk::ImageLayout::ePresentSrcKHR,
-            .image = image().image,
-            .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
-        };
-        frame().commandBuffer.pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eBottomOfPipe,
-            vk::DependencyFlagBits{},
-            nullptr, nullptr, finiBarrier);
+            const vk::ImageMemoryBarrier finiBarrier{
+                .oldLayout = vk::ImageLayout::eTransferDstOptimal,
+                .newLayout = vk::ImageLayout::ePresentSrcKHR,
+                .image = image().image,
+                .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+            };
+            frame().commandBuffer.pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eBottomOfPipe,
+                vk::DependencyFlagBits{},
+                nullptr, nullptr, finiBarrier);
 
-        frame().commandBuffer.end();
+            frame().commandBuffer.end();
 
-        const vk::PipelineStageFlags waitStageMask = vk::PipelineStageFlagBits::eTransfer;
-        const vk::SubmitInfo submitInfo {
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &*frame().semaphore,
-            .pWaitDstStageMask = &waitStageMask,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &frame().commandBuffer,
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &*image().semaphore,
-        };
-        _device->resetFences(*frame().fence);
-        _queue.submit(submitInfo, *frame().fence);
+            const vk::PipelineStageFlags waitStageMask = vk::PipelineStageFlagBits::eTransfer;
+            const vk::SubmitInfo submitInfo {
+                .waitSemaphoreCount = 1,
+                .pWaitSemaphores = &*frame().semaphore,
+                .pWaitDstStageMask = &waitStageMask,
+                .commandBufferCount = 1,
+                .pCommandBuffers = &frame().commandBuffer,
+                .signalSemaphoreCount = 1,
+                .pSignalSemaphores = &*image().semaphore,
+            };
+            _device->resetFences(*frame().fence);
+            _queue.submit(submitInfo, *frame().fence);
 
-        const vk::PresentInfoKHR presentInfo {
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &*image().semaphore,
-            .swapchainCount = 1,
-            .pSwapchains = &*_swapchain,
-            .pImageIndices = &_imageIndex
-        };
-        _queue.presentKHR(presentInfo);
+            const vk::PresentInfoKHR presentInfo {
+                .waitSemaphoreCount = 1,
+                .pWaitSemaphores = &*image().semaphore,
+                .swapchainCount = 1,
+                .pSwapchains = &*_swapchain,
+                .pImageIndices = &_imageIndex
+            };
+            const auto presentResult = _queue.presentKHR(presentInfo);
+
+            if (acquireResult == vk::Result::eSuboptimalKHR || presentResult == vk::Result::eSuboptimalKHR) {
+                rebuild_swapchain();
+            }
+        } catch (vk::OutOfDateKHRError) {
+            rebuild_swapchain();
+        }
     }
 
     void resize(std::pair<std::uint32_t, std::uint32_t> size) {
+        const auto oldExtent = _desiredExtent;
+        _desiredExtent = {size.first, size.second};
+
+        if (oldExtent != _desiredExtent) {
+            rebuild_swapchain();
+        }
+    }
+
+private:
+    Renderer() = default;
+
+    FrameData& frame() {
+        return _frameData[_frameIndex];
+    }
+
+    ImageData& image() {
+        return _imageData[_imageIndex];
+    }
+
+    void rebuild_swapchain() {
         const auto surfaceCaps = _physicalDevice.getSurfaceCapabilitiesKHR(*_surface);
+
         auto desiredImageCount = std::max(surfaceCaps.minImageCount + 1, NUM_FRAMES_IN_FLIGHT + 1);
         if (surfaceCaps.maxImageCount) {
             desiredImageCount = std::min(surfaceCaps.maxImageCount, desiredImageCount);
         }
 
-        if (!(surfaceCaps.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eOpaque)) {
-            throw std::runtime_error("Bad Composite Alpha");
+        vk::Extent2D desiredExtent = _desiredExtent;
+        if (desiredExtent.width == -1) desiredExtent.width = surfaceCaps.currentExtent.width;
+        if (desiredExtent.height == -1) desiredExtent.height = surfaceCaps.currentExtent.height;
+        if (desiredExtent.width == -1 || desiredExtent.height == -1) {
+            throw std::runtime_error("The current Presentation Engine does not report a currentExtent. The application must provide a size via resize().");
+        }
+
+        desiredExtent.width = std::min(std::max(desiredExtent.width, surfaceCaps.minImageExtent.width), surfaceCaps.maxImageExtent.width);
+        desiredExtent.height = std::min(std::max(desiredExtent.height, surfaceCaps.minImageExtent.height), surfaceCaps.maxImageExtent.height);
+
+        vk::CompositeAlphaFlagBitsKHR compositeAlpha;
+        if (surfaceCaps.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eOpaque) {
+            compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+        } else if (surfaceCaps.supportedCompositeAlpha & vk::CompositeAlphaFlagBitsKHR::eInherit) {
+            compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eInherit;
+        } else {
+            throw std::runtime_error("The current Presentation Engine does not support opaque swapchains");
         }
 
         const vk::SwapchainCreateInfoKHR swapchainCreateInfo {
@@ -203,16 +251,18 @@ public:
             .minImageCount = desiredImageCount,
             .imageFormat = _surfaceFormat.format,
             .imageColorSpace = _surfaceFormat.colorSpace,
-            .imageExtent = { size.first, size.second },
+            .imageExtent = desiredExtent,
             .imageArrayLayers = 1,
-            .imageUsage = vk::ImageUsageFlagBits::eTransferDst, // FIXME
+            .imageUsage = vk::ImageUsageFlagBits::eTransferDst,
             .preTransform = surfaceCaps.currentTransform,
-            .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque, // FIXME: Inherit also works
-            .presentMode = vk::PresentModeKHR::eFifo, // Always supported
+            .compositeAlpha = compositeAlpha,
+            .presentMode = vk::PresentModeKHR::eMailbox, // Always supported
             .clipped = true,
             .oldSwapchain = *_swapchain
         };
         _swapchain = _device->createSwapchainKHRUnique(swapchainCreateInfo);
+        _surfaceExtent = desiredExtent;
+
         const auto swapchainImages = _device->getSwapchainImagesKHR(*_swapchain);
         
         waitAllFences();
@@ -226,17 +276,6 @@ public:
             const vk::SemaphoreCreateInfo semaphoreCreateInfo;
             imageData.semaphore = _device->createSemaphoreUnique(semaphoreCreateInfo);
         }
-    }
-
-private:
-    Renderer() = default;
-
-    FrameData& frame() {
-        return _frameData[_frameIndex];
-    }
-
-    ImageData& image() {
-        return _imageData[_imageIndex];
     }
 
     void waitAllFences() {
@@ -261,6 +300,7 @@ private:
     std::size_t _frameIndex = 0;
 
     vk::UniqueSwapchainKHR _swapchain;
+    vk::Extent2D _surfaceExtent, _desiredExtent = {UINT32_MAX, UINT32_MAX};
     std::vector<ImageData> _imageData;
     std::uint32_t _imageIndex;
 };
