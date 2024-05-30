@@ -135,13 +135,14 @@ public:
             frame().commandBuffer.begin(beginInfo);
 
             const vk::ImageMemoryBarrier initBarrier {
+                .dstAccessMask = vk::AccessFlagBits::eTransferWrite,
                 .oldLayout = vk::ImageLayout::eUndefined,
                 .newLayout = vk::ImageLayout::eTransferDstOptimal,
                 .image = image().image,
                 .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
             };
             frame().commandBuffer.pipelineBarrier(
-                vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
                 vk::DependencyFlagBits{},
                 nullptr, nullptr, initBarrier);
 
@@ -157,6 +158,7 @@ public:
                 clearRange);
 
             const vk::ImageMemoryBarrier finiBarrier{
+                .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
                 .oldLayout = vk::ImageLayout::eTransferDstOptimal,
                 .newLayout = vk::ImageLayout::ePresentSrcKHR,
                 .image = image().image,
