@@ -1,13 +1,22 @@
 module;
-#include <errno.h>
 #include <poll.h>
+#include <wayland-cursor.h>
+#include "wayland-xdg-shell-client-protocol.h"
+#include "wayland-xdg-decoration-client-protocol.h"
+#include <xkbcommon/xkbcommon.h>
+
+#include <cerrno>
+#include <cstdint>
+#include <forward_list>
+#include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
 export module wayland:display;
 
 import :common;
-import :external;
 import :seat;
 import xkb;
-import std;
 
 static constexpr char DEFAULT_CURSOR_NAME[] = "default";
 static constexpr std::uint8_t DEFAULT_CURSOR_SIZE = 16;
@@ -128,6 +137,9 @@ public:
 
     Display& operator=(const Display&) = delete;
     Display& operator=(Display&&) noexcept = delete;
+
+    wl_display *handle() noexcept { return _display.get(); }
+    const wl_display *handle() const noexcept { return _display.get(); }
 
     void poll_events() {
         while (wl_display_prepare_read(_display.get())) {

@@ -1,7 +1,9 @@
-export module xkb;
+module;
+#include <xkbcommon/xkbcommon.h>
 
-import std;
-export import :external;
+#include <concepts>
+#include <memory>
+export module xkb;
 
 struct XkbDeleter {
     void operator()(xkb_context *context) {

@@ -2,14 +2,17 @@ module;
 #include <linux/input-event-codes.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <xkbcommon/xkbcommon-names.h>
+#include <wayland-client-protocol.h>
+#include <xkbcommon/xkbcommon.h>
+
+#include <cstdint>
+#include <string>
+#include <vector>
 export module wayland:seat;
 
 import :common;
-import :external;
 import :window;
 import xkb;
-import std;
 
 static constexpr std::size_t WAYLAND_TO_X_KEYCODE_OFFSET = 8;
 
@@ -70,7 +73,6 @@ public:
                     const auto keycode = key + WAYLAND_TO_X_KEYCODE_OFFSET;
 
                     const auto keys = keycode_to_keysyms(self._state.get(), keycode);
-                    const auto mods = xkb_state_serialize_mods(self._state.get(), XKB_STATE_MODS_EFFECTIVE);
 
                     switch(state) {
                     case XKB_KEY_DOWN:
