@@ -33,7 +33,7 @@ public:
         vk::defaultDispatchLoaderDynamic.init();
 
         const vk::ApplicationInfo applicationInfo {
-            .applicationVersion = vk::ApiVersion13
+            .apiVersion = vk::ApiVersion13
         };
         const std::array instanceExtensions = {
             vk::KHRSurfaceExtensionName,
