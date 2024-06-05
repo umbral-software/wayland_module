@@ -1,6 +1,8 @@
 module;
+#include "wayland-content-type-client-protocol.h"
 #include "wayland-xdg-shell-client-protocol.h"
 #include "wayland-xdg-decoration-client-protocol.h"
+
 #include <xkbcommon/xkbcommon.h>
 
 #include <cstdint>
@@ -71,6 +73,11 @@ public:
         xdg_toplevel_add_listener(_toplevel.get(), &toplevel_listener, this);
         xdg_toplevel_set_min_size(_toplevel.get(), MIN_WINDOW_SIZE.first, MIN_WINDOW_SIZE.second);
         xdg_toplevel_set_title(_toplevel.get(), title);
+
+        if (_display.content_type_manager()) {
+            _content_type.reset(wp_content_type_manager_v1_get_surface_content_type(_display.content_type_manager(), _wl_surface.get()));
+            wp_content_type_v1_set_content_type(_content_type.get(), WP_CONTENT_TYPE_V1_TYPE_GAME);
+        }
         
         if (_display.decoration_manager()) {
             _toplevel_decoration.reset(zxdg_decoration_manager_v1_get_toplevel_decoration(_display.decoration_manager(), _toplevel.get()));
@@ -133,6 +140,7 @@ private:
     WaylandPointer<wl_surface> _wl_surface;
     WaylandPointer<xdg_surface> _xdg_surface;
     WaylandPointer<xdg_toplevel> _toplevel;
+    WaylandPointer<wp_content_type_v1> _content_type; // Optional
     WaylandPointer<zxdg_toplevel_decoration_v1> _toplevel_decoration; // Optional
 
     std::pair<std::int32_t, std::int32_t> _requested_size = {0, 0};

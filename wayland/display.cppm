@@ -1,8 +1,10 @@
 module;
+#include "wayland-content-type-client-protocol.h"
+#include "wayland-xdg-decoration-client-protocol.h"
+#include "wayland-xdg-shell-client-protocol.h"
+
 #include <poll.h>
 #include <wayland-cursor.h>
-#include "wayland-xdg-shell-client-protocol.h"
-#include "wayland-xdg-decoration-client-protocol.h"
 #include <xkbcommon/xkbcommon.h>
 
 #include <cerrno>
@@ -33,6 +35,9 @@ static constexpr std::uint32_t WL_SEAT_DESIRED_VERSION = 7;
 
 // Only known version
 static constexpr std::uint32_t WL_SHM_DESIRED_VERSION = 1;
+
+// Only known version
+static constexpr std::uint32_t WP_CONTENT_TYPE_DESIRED_VERSION = 1;
 
 // Only known version
 static constexpr std::uint32_t XDG_DECORATION_V1_DESIRED_VERSION = 1;
@@ -91,6 +96,9 @@ public:
             }
             if ("wl_shm" == interface && WL_SHM_DESIRED_VERSION <= version) {
                 _shm.reset(static_cast<wl_shm *>(wl_registry_bind(_registry.get(), name, &wl_shm_interface, WL_SHM_DESIRED_VERSION)));
+            }
+            if ("wp_content_type_manager_v1" == interface && WP_CONTENT_TYPE_DESIRED_VERSION <= version) { 
+                _content_type_manager.reset(static_cast<wp_content_type_manager_v1 *>(wl_registry_bind(_registry.get(), name, &wp_content_type_manager_v1_interface, WP_CONTENT_TYPE_DESIRED_VERSION)));
             }
             if ("xdg_wm_base" == interface && XDG_SHELL_DESIRED_VERSION <= version) {
                 _wm_base.reset(static_cast<xdg_wm_base *>(wl_registry_bind(_registry.get(), name, &xdg_wm_base_interface, XDG_SHELL_DESIRED_VERSION)));
@@ -182,6 +190,9 @@ private:
     wl_compositor *compositor() noexcept { return _compositor.get(); }
     const wl_compositor *compositor() const noexcept { return _compositor.get(); };
     
+    wp_content_type_manager_v1 *content_type_manager() noexcept { return _content_type_manager.get(); }
+    const wp_content_type_manager_v1 *content_type_manager() const noexcept { return _content_type_manager.get(); }
+
     zxdg_decoration_manager_v1 *decoration_manager() noexcept { return _decoration_manager.get(); };
     const zxdg_decoration_manager_v1 *decoration_manager() const noexcept { return _decoration_manager.get(); }
 
@@ -220,6 +231,7 @@ private:
     std::forward_list<Seat> _seats;
     WaylandPointer<wl_shm> _shm;
     WaylandPointer<xdg_wm_base> _wm_base;
+    WaylandPointer<wp_content_type_manager_v1> _content_type_manager; // Optional
     WaylandPointer<zxdg_decoration_manager_v1> _decoration_manager; // Optional
 
     WaylandPointer<wl_surface> _cursor_surface;

@@ -16,6 +16,7 @@ find_package(X11 REQUIRED COMPONENTS xkbcommon)
 
 add_executable(demo main.cpp vulkan-storage.cpp)
 ecm_add_wayland_client_protocol(demo PROTOCOL ${WaylandProtocols_DATADIR}/stable/xdg-shell/xdg-shell.xml BASENAME xdg-shell)
+ecm_add_wayland_client_protocol(demo PROTOCOL ${WaylandProtocols_DATADIR}/staging/content-type/content-type-v1.xml BASENAME content-type)
 ecm_add_wayland_client_protocol(demo PROTOCOL ${WaylandProtocols_DATADIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml BASENAME xdg-decoration)
 target_compile_definitions(demo PRIVATE VK_NO_PROTOTYPES VK_USE_PLATFORM_WAYLAND_KHR VULKAN_HPP_NO_STRUCT_CONSTRUCTORS VULKAN_HPP_NO_UNION_CONSTRUCTORS)
 target_include_directories(demo PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

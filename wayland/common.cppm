@@ -1,7 +1,9 @@
 module;
-#include <wayland-cursor.h>
+#include "wayland-content-type-client-protocol.h"
 #include "wayland-xdg-shell-client-protocol.h"
 #include "wayland-xdg-decoration-client-protocol.h"
+
+#include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <concepts>
@@ -37,6 +39,12 @@ struct WaylandDeleter {
     }
     void operator()(wl_surface *surface) const noexcept {
         wl_surface_destroy(surface);
+    }
+    void operator()(wp_content_type_manager_v1 *content_type_manager) const noexcept {
+        wp_content_type_manager_v1_destroy(content_type_manager);
+    }
+    void operator()(wp_content_type_v1 *content_type) const noexcept {
+        wp_content_type_v1_destroy(content_type);
     }
     void operator()(xdg_surface *surface) const noexcept {
         xdg_surface_destroy(surface);
@@ -90,6 +98,9 @@ public:
     virtual wl_compositor *compositor() noexcept = 0;
     virtual const wl_compositor *compositor() const noexcept = 0;
     
+    virtual wp_content_type_manager_v1 *content_type_manager() noexcept = 0;
+    virtual const wp_content_type_manager_v1 *content_type_manager() const noexcept = 0;
+
     virtual zxdg_decoration_manager_v1 *decoration_manager() noexcept = 0;
     virtual const zxdg_decoration_manager_v1 *decoration_manager() const noexcept = 0;
 
