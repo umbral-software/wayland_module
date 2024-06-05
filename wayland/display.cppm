@@ -88,22 +88,22 @@ public:
             const auto name = global.first;
             const auto& interface = global.second.first;
             const auto version = global.second.second;
-            if ("wl_compositor" == interface && WL_COMPOSITOR_DESIRED_VERSION <= version) {
+            if (wl_compositor_interface.name == interface && WL_COMPOSITOR_DESIRED_VERSION <= version) {
                 _compositor.reset(static_cast<wl_compositor *>(wl_registry_bind(_registry.get(), name, &wl_compositor_interface, WL_COMPOSITOR_DESIRED_VERSION)));
             }
-            if ("wl_seat" == interface && WL_SEAT_DESIRED_VERSION <= version) {
+            if (wl_seat_interface.name == interface && WL_SEAT_DESIRED_VERSION <= version) {
                 _seats.emplace_front(*static_cast<IDisplayInternal*>(this), static_cast<wl_seat *>(wl_registry_bind(_registry.get(), name, &wl_seat_interface, WL_SEAT_DESIRED_VERSION)));
             }
-            if ("wl_shm" == interface && WL_SHM_DESIRED_VERSION <= version) {
+            if (wl_shm_interface.name == interface && WL_SHM_DESIRED_VERSION <= version) {
                 _shm.reset(static_cast<wl_shm *>(wl_registry_bind(_registry.get(), name, &wl_shm_interface, WL_SHM_DESIRED_VERSION)));
             }
-            if ("wp_content_type_manager_v1" == interface && WP_CONTENT_TYPE_DESIRED_VERSION <= version) { 
+            if (wp_content_type_manager_v1_interface.name == interface && WP_CONTENT_TYPE_DESIRED_VERSION <= version) { 
                 _content_type_manager.reset(static_cast<wp_content_type_manager_v1 *>(wl_registry_bind(_registry.get(), name, &wp_content_type_manager_v1_interface, WP_CONTENT_TYPE_DESIRED_VERSION)));
             }
-            if ("xdg_wm_base" == interface && XDG_SHELL_DESIRED_VERSION <= version) {
+            if (xdg_wm_base_interface.name == interface && XDG_SHELL_DESIRED_VERSION <= version) {
                 _wm_base.reset(static_cast<xdg_wm_base *>(wl_registry_bind(_registry.get(), name, &xdg_wm_base_interface, XDG_SHELL_DESIRED_VERSION)));
             }
-            if ("zxdg_decoration_manager_v1" == interface && XDG_DECORATION_V1_DESIRED_VERSION <= version) {
+            if (zxdg_decoration_manager_v1_interface.name == interface && XDG_DECORATION_V1_DESIRED_VERSION <= version) {
                 _decoration_manager.reset(static_cast<zxdg_decoration_manager_v1 *>(wl_registry_bind(_registry.get(), name, &zxdg_decoration_manager_v1_interface, XDG_DECORATION_V1_DESIRED_VERSION)));
             }
         }
